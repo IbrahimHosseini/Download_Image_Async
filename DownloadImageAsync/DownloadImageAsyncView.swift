@@ -11,6 +11,17 @@ import Combine
 class DownloaderImageLoader {
     private let url = URL(string: "https://picsum.photos/300")!
     
+    func downloadImageAsync() async throws -> UIImage? {
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            return handleResponse(data: data, response: response)
+        } catch {
+            throw error
+        }
+            
+    }
+        
+    
     func downloadImageCombine() -> AnyPublisher<UIImage?, Error> {
         URLSession.shared.dataTaskPublisher(for: url)
             .map(handleResponse)
@@ -49,7 +60,12 @@ class DownloadImageAsyncViewModel: ObservableObject {
                 self? .image = image
             }
             .store(in: &cancellable)
-
+    }
+    
+    @MainActor
+    func fetch() async {
+        let image = try? await loader.downloadImageAsync()
+        self.image = image
     }
 }
 
@@ -62,12 +78,12 @@ struct DownloadImageAsyncView: View {
             if let image = viewModel.image {
                 Image(uiImage: image)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: 200, height: 200)
+                    .scaledToFill()
+                    .ignoresSafeArea()
             }
-            
-        }.onAppear {
-            viewModel.fetch()
+        }
+        .task {
+            await viewModel.fetch()
         }
     }
 }
